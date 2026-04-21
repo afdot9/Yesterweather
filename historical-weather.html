@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yesterweather</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1a2e;
+    --paper: #f5f0e8;
+    --cream: #ede8da;
+    --rust: #c0392b;
+    --muted: #7a7060;
+    --line: #d4cfc0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 80px;
+    background-image: repeating-linear-gradient(0deg, transparent, transparent 27px, var(--line) 27px, var(--line) 28px);
+  }
+  header { text-align: center; margin-bottom: 48px; }
+  header::before { content: ''; display: block; width: 2px; height: 40px; background: var(--ink); margin: 0 auto 20px; }
+  h1 { font-family: 'Playfair Display', serif; font-size: clamp(2.4rem, 6vw, 4rem); font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+  h1 em { font-style: italic; color: var(--rust); }
+  .subtitle { font-size: 0.7rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--muted); margin-top: 10px; }
+  .card { width: 100%; max-width: 620px; background: white; border: 1px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); padding: 32px; margin-bottom: 24px; }
+  .section-label { font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .input-row { display: flex; gap: 10px; margin-bottom: 18px; }
+  input[type="text"], input[type="date"] { flex: 1; padding: 10px 14px; border: 1px solid var(--ink); background: var(--cream); font-family: 'DM Mono', monospace; font-size: 0.85rem; color: var(--ink); outline: none; transition: box-shadow 0.15s; }
+  input[type="text"]:focus, input[type="date"]:focus { box-shadow: 2px 2px 0 var(--ink); }
+  input[type="date"] { max-width: 185px; }
+  .btn { padding: 10px 18px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); font-family: 'DM Mono', monospace; font-size: 0.75rem; letter-spacing: 0.08em; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .btn:hover:not(:disabled) { background: var(--rust); border-color: var(--rust); }
+  .btn:active:not(:disabled) { transform: translate(2px,2px); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-outline { background: transparent; color: var(--ink); }
+  .btn-outline:hover:not(:disabled) { background: var(--cream); color: var(--ink); border-color: var(--ink); }
+  .divider { display: flex; align-items: center; gap: 12px; margin: 14px 0; color: var(--muted); font-size: 0.65rem; letter-spacing: 0.15em; }
+  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+  #status { font-size: 0.75rem; color: var(--muted); min-height: 20px; margin-top: 10px; }
+  #results { width: 100%; max-width: 620px; display: none; }
+  .result-header { border-bottom: 2px solid var(--ink); padding-bottom: 16px; margin-bottom: 24px; }
+  .result-place { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
+  .result-date { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.12em; margin-top: 4px; }
+  .weather-icon { font-size: 3.5rem; line-height: 1; margin: 20px 0 12px; }
+  .temp-main { font-family: 'Playfair Display', serif; font-size: 3.2rem; font-weight: 700; letter-spacing: -0.03em; }
+  .temp-range { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+  .condition-text { font-family: 'Playfair Display', serif; font-style: italic; font-size: 1.15rem; color: var(--rust); margin: 10px 0 24px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--ink); border: 1px solid var(--ink); margin-bottom: 24px; }
+  .stat { background: white; padding: 16px 14px; text-align: center; }
+  .stat-val { font-family: 'Playfair Display', serif; font-size: 1.4rem; font-weight: 700; }
+  .stat-label { font-size: 0.6rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+  .hourly-title { font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .hourly-chart { display: flex; align-items: flex-end; gap: 3px; height: 70px; margin-bottom: 6px; }
+  .hour-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; }
+  .hour-bar { width: 100%; background: var(--ink); min-height: 2px; position: relative; transition: background 0.15s; }
+  .hour-bar:hover { background: var(--rust); }
+  .hour-bar-tip { display: none; position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--paper); font-size: 0.6rem; padding: 3px 6px; white-space: nowrap; z-index: 10; pointer-events: none; }
+  .hour-bar:hover .hour-bar-tip { display: block; }
+  .hour-labels { display: flex; gap: 3px; }
+  .hour-label { flex: 1; text-align: center; font-size: 0.52rem; color: var(--muted); }
+  .error-msg { background: #fff5f5; border: 1px solid var(--rust); padding: 14px 18px; color: var(--rust); font-size: 0.8rem; line-height: 1.6; }
+  .loading-spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--ink); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-up { animation: fadeUp 0.35s ease forwards; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><em>Yester</em>weather</h1>
+  <p class="subtitle">Historical Weather Archive</p>
+</header>
+
+<div class="card">
+  <p class="section-label">Location</p>
+  <div class="input-row">
+    <input type="text" id="locationInput" placeholder="e.g. Los Angeles, Gothenburg, Tokyo…" />
+  </div>
+
+  <div class="divider">choose a date</div>
+
+  <p class="section-label">Date</p>
+  <div class="input-row">
+    <input type="date" id="dateInput" />
+    <button class="btn btn-outline" onclick="setQuickDate(-1)">Yesterday</button>
+    <button class="btn btn-outline" onclick="setQuickDate(-7)">Last week</button>
+  </div>
+
+  <button class="btn" id="lookupBtn" style="width:100%;margin-top:8px;padding:14px;" onclick="lookupWeather()">
+    Look up the weather
+  </button>
+  <div id="status"></div>
+</div>
+
+<div id="results"></div>
+
+<script>
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  document.getElementById('dateInput').value = toISO(yesterday);
+  document.getElementById('dateInput').max = toISO(yesterday);
+  document.getElementById('dateInput').min = '1940-01-01';
+
+  function toISO(d) { return d.toISOString().split('T')[0]; }
+
+  function setQuickDate(n) {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    document.getElementById('dateInput').value = toISO(d);
+  }
+
+  function setStatus(msg, loading = false) {
+    document.getElementById('status').innerHTML = loading
+      ? `<span class="loading-spinner"></span><span style="font-size:0.75rem">${msg}</span>`
+      : msg ? `<span style="font-size:0.75rem;color:var(--muted)">${msg}</span>` : '';
+  }
+
+  function setLoading(on) {
+    document.getElementById('lookupBtn').disabled = on;
+    ['locationInput','dateInput'].forEach(id => document.getElementById(id).disabled = on);
+  }
+
+  async function lookupWeather() {
+    const loc = document.getElementById('locationInput').value.trim();
+    const date = document.getElementById('dateInput').value;
+
+    if (!loc) { setStatus('Please enter a location.'); return; }
+    if (!date) { setStatus('Please select a date.'); return; }
+
+    const today = new Date(); today.setHours(0,0,0,0);
+    const chosen = new Date(date + 'T12:00:00');
+    if (chosen >= today) { setStatus('Please choose a past date.'); return; }
+
+    document.getElementById('results').style.display = 'none';
+    setLoading(true);
+    setStatus('Searching for weather data…', true);
+
+    const prompt = `You are a weather data assistant. Retrieve historical weather data for "${loc}" on ${date}.
+
+Use web search to find real data. Try fetching this URL:
+https://archive-api.open-meteo.com/v1/archive?latitude=LAT&longitude=LON&start_date=${date}&end_date=${date}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,weathercode&hourly=temperature_2m&timezone=auto&temperature_unit=celsius&windspeed_unit=kmh
+
+First find coordinates for "${loc}" using the Open-Meteo geocoding API:
+https://geocoding-api.open-meteo.com/v1/search?name=CITYNAME&count=1&language=en&format=json
+
+Then substitute the coordinates into the archive URL above and fetch it.
+
+Return ONLY a JSON object, no markdown fences, no explanation text, nothing else:
+{
+  "location": "resolved city name, country",
+  "date": "${date}",
+  "temp_max_c": number,
+  "temp_min_c": number,
+  "precipitation_mm": number,
+  "wind_max_kmh": number,
+  "weather_code": number,
+  "condition": "e.g. Clear sky / Partly cloudy / Moderate rain",
+  "hourly_temps_c": [24 numbers for hours 0-23],
+  "timezone": "e.g. PST or CET"
+}`;
+
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error.message || 'API error');
+
+      const rawText = data.content
+        .filter(b => b.type === 'text')
+        .map(b => b.text)
+        .join('');
+
+      const clean = rawText.replace(/```json|```/g, '').trim();
+      const match = clean.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error('Could not parse response. Please try again.');
+
+      const weather = JSON.parse(match[0]);
+      setStatus('');
+      setLoading(false);
+      renderResults(weather);
+
+    } catch (e) {
+      setLoading(false);
+      setStatus('');
+      const resultsEl = document.getElementById('results');
+      resultsEl.style.display = 'block';
+      resultsEl.innerHTML = `<div class="card error-msg">⚠ ${e.message || 'Something went wrong. Please try again.'}</div>`;
+    }
+  }
+
+  const WMO_ICONS = {
+    0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',
+    51:'🌦️',53:'🌦️',55:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',
+    71:'🌨️',73:'🌨️',75:'❄️',80:'🌦️',81:'🌧️',82:'⛈️',
+    85:'🌨️',86:'❄️',95:'⛈️',96:'⛈️',99:'⛈️'
+  };
+
+  function getIcon(code) {
+    if (WMO_ICONS[code]) return WMO_ICONS[code];
+    if (code <= 3) return '🌤️';
+    if (code <= 49) return '🌫️';
+    if (code <= 69) return '🌧️';
+    if (code <= 79) return '❄️';
+    return '⛈️';
+  }
+
+  function formatDate(ds) {
+    return new Date(ds + 'T12:00:00').toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  }
+
+  function renderResults(w) {
+    const avg = ((+w.temp_max_c + +w.temp_min_c) / 2).toFixed(1);
+    const icon = getIcon(+w.weather_code);
+    const hourly = Array.isArray(w.hourly_temps_c) ? w.hourly_temps_c : [];
+    const tMin = Math.min(...hourly);
+    const tMax = Math.max(...hourly);
+    const tRange = tMax - tMin || 1;
+
+    const bars = hourly.map((t, i) => {
+      const h = Math.max(4, Math.round(((+t - tMin) / tRange) * 58 + 4));
+      return `<div class="hour-bar-wrap"><div class="hour-bar" style="height:${h}px"><div class="hour-bar-tip">${i}:00 · ${(+t).toFixed(1)}°C</div></div></div>`;
+    }).join('');
+
+    const labels = Array.from({length:24},(_,i)=>`<div class="hour-label">${i%6===0?i+'h':''}</div>`).join('');
+
+    const el = document.getElementById('results');
+    el.style.display = 'block';
+    el.innerHTML = `
+      <div class="card fade-up">
+        <div class="result-header">
+          <div class="result-place">${w.location}</div>
+          <div class="result-date">${formatDate(w.date)}</div>
+        </div>
+        <div class="weather-icon">${icon}</div>
+        <div class="temp-main">${avg}°C</div>
+        <div class="temp-range">↑ ${w.temp_max_c}° high &nbsp;·&nbsp; ↓ ${w.temp_min_c}° low</div>
+        <div class="condition-text">${w.condition}</div>
+        <div class="stats-grid">
+          <div class="stat"><div class="stat-val">${w.temp_max_c}°</div><div class="stat-label">High</div></div>
+          <div class="stat"><div class="stat-val">${w.temp_min_c}°</div><div class="stat-label">Low</div></div>
+          <div class="stat"><div class="stat-val">${w.precipitation_mm!=null?Number(w.precipitation_mm).toFixed(1):'—'} mm</div><div class="stat-label">Precipitation</div></div>
+          <div class="stat"><div class="stat-val">${w.wind_max_kmh!=null?Math.round(+w.wind_max_kmh):'—'}</div><div class="stat-label">Max Wind km/h</div></div>
+          <div class="stat"><div class="stat-val">${w.timezone||'—'}</div><div class="stat-label">Timezone</div></div>
+          <div class="stat"><div class="stat-val">${w.date}</div><div class="stat-label">Date</div></div>
+        </div>
+        ${hourly.length ? `<div class="hourly-title">Hourly Temperature</div><div class="hourly-chart">${bars}</div><div class="hour-labels">${labels}</div>` : ''}
+      </div>`;
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+</script>
+
+</body>
+</html>
