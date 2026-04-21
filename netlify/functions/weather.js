@@ -23,6 +23,7 @@ exports.handler = async (event) => {
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1000,
+      system: 'You are a weather data API. You ONLY respond with raw JSON objects. Never use markdown, never use code fences, never add explanation. Only output the JSON object and nothing else.',
       messages: [{ role: 'user', content: prompt }]
     })
   });
