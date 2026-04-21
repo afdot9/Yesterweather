@@ -5,7 +5,10 @@ exports.handler = async (event) => {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return { statusCode: 500, body: JSON.stringify({ error: { message: 'API key not configured' } }) };
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: { message: 'API key not configured' } })
+    };
   }
 
   const { prompt } = JSON.parse(event.body);
@@ -18,9 +21,8 @@ exports.handler = async (event) => {
       'anthropic-version': '2023-06-01'
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 1000,
-      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
       messages: [{ role: 'user', content: prompt }]
     })
   });
@@ -28,7 +30,7 @@ exports.handler = async (event) => {
   const data = await response.json();
 
   return {
-    statusCode: 200,
+    statusCode: response.status,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   };
