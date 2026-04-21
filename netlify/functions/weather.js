@@ -1,17 +1,14 @@
-export default async (request) => {
-  if (request.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
+exports.handler = async (event) => {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Method not allowed' };
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: { message: 'API key not configured' } }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return { statusCode: 500, body: JSON.stringify({ error: { message: 'API key not configured' } }) };
   }
 
-  const { prompt } = await request.json();
+  const { prompt } = JSON.parse(event.body);
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -30,13 +27,9 @@ export default async (request) => {
 
   const data = await response.json();
 
-  return new Response(JSON.stringify(data), {
-    status: response.status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    }
-  });
+  return {
+    statusCode: 200,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  };
 };
-
-export const config = { path: '/.netlify/functions/weather' };
