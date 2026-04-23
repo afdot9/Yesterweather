@@ -132,6 +132,8 @@
 
   .hidden { display: none !important; }
 </style>
+  <link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1a1a2e">
 </head>
 <body>
 
@@ -475,6 +477,10 @@ Use realistic estimates based on climate data for that location and time of year
     return new Date(ds + 'T12:00:00').toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
   }
 </script>
-
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
+</script>
 </body>
 </html>
