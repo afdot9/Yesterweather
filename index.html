@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Yesterweather</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1a1a2e">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -35,7 +37,7 @@
   .card { width: 100%; max-width: 620px; background: white; border: 1px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); padding: 32px; margin-bottom: 24px; }
   .section-label { font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
   .input-row { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
-  input[type="text"], input[type="date"], select {
+  input[type="text"], input[type="date"], input[type="number"], select {
     flex: 1;
     padding: 10px 14px;
     border: 1px solid var(--ink);
@@ -46,15 +48,23 @@
     outline: none;
     transition: box-shadow 0.15s;
     appearance: none;
+    -webkit-appearance: none;
   }
-  input[type="text"]:focus, input[type="date"]:focus, select:focus { box-shadow: 2px 2px 0 var(--ink); }
+  input:focus, select:focus { box-shadow: 2px 2px 0 var(--ink); }
   input[type="date"] { max-width: 185px; }
 
-  /* Mode toggle */
-  .mode-toggle { display: flex; gap: 0; margin-bottom: 24px; border: 1px solid var(--ink); }
-  .mode-btn { flex: 1; padding: 10px; background: transparent; border: none; font-family: 'DM Mono', monospace; font-size: 0.72rem; letter-spacing: 0.08em; cursor: pointer; color: var(--muted); transition: all 0.15s; text-align: center; }
+  /* Top bar with mode toggle + unit toggle */
+  .top-controls { display: flex; gap: 10px; margin-bottom: 24px; align-items: stretch; }
+  .mode-toggle { display: flex; flex: 1; border: 1px solid var(--ink); }
+  .mode-btn { flex: 1; padding: 10px 8px; background: transparent; border: none; font-family: 'DM Mono', monospace; font-size: 0.68rem; letter-spacing: 0.06em; cursor: pointer; color: var(--muted); transition: all 0.15s; text-align: center; white-space: nowrap; }
   .mode-btn.active { background: var(--ink); color: var(--paper); }
-  .mode-btn:not(.active):hover { background: var(--cream); }
+  .mode-btn:not(.active):hover { background: var(--cream); color: var(--ink); }
+
+  /* °C / °F pill */
+  .unit-toggle { display: flex; border: 1px solid var(--ink); }
+  .unit-btn { padding: 10px 14px; background: transparent; border: none; font-family: 'DM Mono', monospace; font-size: 0.75rem; cursor: pointer; color: var(--muted); transition: all 0.15s; }
+  .unit-btn.active { background: var(--ink); color: var(--paper); }
+  .unit-btn:not(.active):hover { background: var(--cream); color: var(--ink); }
 
   .btn { padding: 10px 18px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); font-family: 'DM Mono', monospace; font-size: 0.75rem; letter-spacing: 0.08em; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
   .btn:hover:not(:disabled) { background: var(--rust); border-color: var(--rust); }
@@ -91,23 +101,23 @@
   .hour-labels { display: flex; gap: 3px; }
   .hour-label { flex: 1; text-align: center; font-size: 0.52rem; color: var(--muted); }
 
+  /* Date range results */
+  .range-day-row { padding: 14px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 12px; }
+  .range-day-row:last-child { border-bottom: none; }
+  .range-day-date { font-size: 0.72rem; color: var(--muted); }
+  .range-day-name { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 700; }
+  .range-day-temp { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 700; white-space: nowrap; }
+  .range-day-sub { font-size: 0.62rem; color: var(--muted); margin-top: 2px; }
+
   /* Multi-year timeline */
   .timeline-header { border-bottom: 2px solid var(--ink); padding-bottom: 16px; margin-bottom: 28px; }
   .timeline-place { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 700; }
   .timeline-subtitle { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; margin-top: 4px; }
-
-  .year-row {
-    display: grid;
-    grid-template-columns: 60px 1fr auto;
-    align-items: center;
-    gap: 14px;
-    padding: 14px 0;
-    border-bottom: 1px solid var(--line);
-  }
+  .year-row { display: grid; grid-template-columns: 60px 1fr auto; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--line); }
   .year-row:last-child { border-bottom: none; }
   .year-label { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 700; }
-  .year-bar-track { height: 8px; background: var(--cream); border: 1px solid var(--line); position: relative; border-radius: 0; }
-  .year-bar-fill { height: 100%; background: var(--ink); transition: width 0.6s ease; }
+  .year-bar-track { height: 8px; background: var(--cream); border: 1px solid var(--line); }
+  .year-bar-fill { height: 100%; transition: width 0.6s ease; }
   .year-bar-fill.cold { background: #4a90d9; }
   .year-bar-fill.cool { background: #7ab8e8; }
   .year-bar-fill.mild { background: #f0c040; }
@@ -129,11 +139,8 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
   .fade-up { animation: fadeUp 0.35s ease forwards; }
-
   .hidden { display: none !important; }
 </style>
-  <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#1a1a2e">
 </head>
 <body>
 
@@ -144,10 +151,17 @@
 
 <div class="card">
 
-  <!-- Mode toggle -->
-  <div class="mode-toggle">
-    <button class="mode-btn active" id="modeOne" onclick="setMode('single')">Single day</button>
-    <button class="mode-btn" id="modeMulti" onclick="setMode('multi')">This day, every year</button>
+  <!-- Mode + unit toggles -->
+  <div class="top-controls">
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="modeOne" onclick="setMode('single')">Single day</button>
+      <button class="mode-btn" id="modeRange" onclick="setMode('range')">Date range</button>
+      <button class="mode-btn" id="modeMulti" onclick="setMode('multi')">Every year</button>
+    </div>
+    <div class="unit-toggle">
+      <button class="unit-btn active" id="unitC" onclick="setUnit('C')">°C</button>
+      <button class="unit-btn" id="unitF" onclick="setUnit('F')">°F</button>
+    </div>
   </div>
 
   <p class="section-label">Location</p>
@@ -155,43 +169,48 @@
     <input type="text" id="locationInput" placeholder="e.g. Gothenburg, Los Angeles, Tokyo…" />
   </div>
 
-  <div class="divider" id="dateDivider">choose a date</div>
+  <div class="divider">choose a date</div>
 
-  <!-- Single mode date -->
+  <!-- Single day -->
   <div id="singleDateSection">
     <p class="section-label">Date</p>
     <div class="input-row">
       <input type="date" id="dateInput" />
-      <button class="btn btn-outline" onclick="setQuickDate(-1)">Yesterday</button>
-      <button class="btn btn-outline" onclick="setQuickDate(-7)">Last week</button>
+      <button class="btn btn-outline" onclick="setQuickDate('dateInput', -1)">Yesterday</button>
+      <button class="btn btn-outline" onclick="setQuickDate('dateInput', -7)">Last week</button>
     </div>
   </div>
 
-  <!-- Multi-year mode -->
+  <!-- Date range -->
+  <div id="rangeDateSection" class="hidden">
+    <p class="section-label">From</p>
+    <div class="input-row">
+      <input type="date" id="dateFrom" />
+    </div>
+    <p class="section-label">To</p>
+    <div class="input-row">
+      <input type="date" id="dateTo" />
+    </div>
+    <p style="font-size:0.65rem;color:var(--muted);margin-top:-10px;margin-bottom:14px">Max 14 days to keep things speedy</p>
+  </div>
+
+  <!-- Multi-year -->
   <div id="multiDateSection" class="hidden">
     <p class="section-label">Day & Month</p>
     <div class="input-row">
-      <select id="dayInput">
-        <!-- filled by JS -->
-      </select>
+      <select id="dayInput"></select>
       <select id="monthInput">
-        <option value="01">January</option>
-        <option value="02">February</option>
-        <option value="03">March</option>
-        <option value="04">April</option>
-        <option value="05">May</option>
-        <option value="06">June</option>
-        <option value="07">July</option>
-        <option value="08">August</option>
-        <option value="09">September</option>
-        <option value="10">October</option>
-        <option value="11">November</option>
-        <option value="12" selected>December</option>
+        <option value="01">January</option><option value="02">February</option>
+        <option value="03">March</option><option value="04">April</option>
+        <option value="05">May</option><option value="06">June</option>
+        <option value="07">July</option><option value="08">August</option>
+        <option value="09">September</option><option value="10">October</option>
+        <option value="11">November</option><option value="12" selected>December</option>
       </select>
     </div>
     <p class="section-label">How many years back?</p>
     <div class="input-row" style="align-items:center">
-      <input type="number" id="yearsBack" value="10" min="1" max="80" style="max-width:100px" />
+      <input type="number" id="yearsBack" value="10" min="1" max="80" style="max-width:100px;flex:none" />
       <span style="font-size:0.75rem;color:var(--muted);padding:10px 0">years &nbsp;(max 80)</span>
     </div>
   </div>
@@ -205,45 +224,72 @@
 <div id="results"></div>
 
 <script>
-  // --- Init ---
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  document.getElementById('dateInput').value = toISO(yesterday);
-  document.getElementById('dateInput').max = toISO(yesterday);
+  // --- State ---
+  let currentMode = 'single';
+  let currentUnit = 'C';
+
+  // --- Init dates ---
+  const tod = new Date(); tod.setHours(0,0,0,0);
+  const yest = new Date(tod); yest.setDate(yest.getDate() - 1);
+  const weekAgo = new Date(tod); weekAgo.setDate(weekAgo.getDate() - 7);
+
+  document.getElementById('dateInput').value = toISO(yest);
+  document.getElementById('dateInput').max = toISO(yest);
   document.getElementById('dateInput').min = '1940-01-01';
+
+  document.getElementById('dateFrom').value = toISO(weekAgo);
+  document.getElementById('dateFrom').max = toISO(yest);
+  document.getElementById('dateFrom').min = '1940-01-01';
+  document.getElementById('dateTo').value = toISO(yest);
+  document.getElementById('dateTo').max = toISO(yest);
+  document.getElementById('dateTo').min = '1940-01-01';
 
   // Fill day dropdown
   const daySelect = document.getElementById('dayInput');
   for (let i = 1; i <= 31; i++) {
     const o = document.createElement('option');
-    o.value = String(i).padStart(2, '0');
+    o.value = String(i).padStart(2,'0');
     o.textContent = i;
     if (i === 24) o.selected = true;
     daySelect.appendChild(o);
   }
-
-  // Default month to December for "every Christmas Eve" vibes
   document.getElementById('monthInput').value = '12';
-  daySelect.value = '24';
 
-  let currentMode = 'single';
-
+  // --- Mode & unit ---
   function setMode(mode) {
     currentMode = mode;
-    document.getElementById('modeOne').classList.toggle('active', mode === 'single');
-    document.getElementById('modeMulti').classList.toggle('active', mode === 'multi');
+    ['modeOne','modeRange','modeMulti'].forEach(id => document.getElementById(id).classList.remove('active'));
+    document.getElementById(mode === 'single' ? 'modeOne' : mode === 'range' ? 'modeRange' : 'modeMulti').classList.add('active');
     document.getElementById('singleDateSection').classList.toggle('hidden', mode !== 'single');
+    document.getElementById('rangeDateSection').classList.toggle('hidden', mode !== 'range');
     document.getElementById('multiDateSection').classList.toggle('hidden', mode !== 'multi');
     document.getElementById('results').style.display = 'none';
     setStatus('');
   }
 
+  function setUnit(u) {
+    currentUnit = u;
+    document.getElementById('unitC').classList.toggle('active', u === 'C');
+    document.getElementById('unitF').classList.toggle('active', u === 'F');
+  }
+
+  function toF(c) { return (c * 9/5 + 32); }
+  function fmt(c) {
+    if (currentUnit === 'F') return toF(c).toFixed(1) + '°F';
+    return Number(c).toFixed(1) + '°C';
+  }
+  function fmtShort(c) {
+    if (currentUnit === 'F') return toF(c).toFixed(0) + '°';
+    return Number(c).toFixed(0) + '°';
+  }
+  function unitLabel() { return currentUnit === 'F' ? '°F' : '°C'; }
+
   function toISO(d) { return d.toISOString().split('T')[0]; }
 
-  function setQuickDate(n) {
+  function setQuickDate(id, n) {
     const d = new Date();
     d.setDate(d.getDate() + n);
-    document.getElementById('dateInput').value = toISO(d);
+    document.getElementById(id).value = toISO(d);
   }
 
   function setStatus(msg, loading = false) {
@@ -254,74 +300,136 @@
 
   function setLoading(on) {
     document.getElementById('lookupBtn').disabled = on;
-    ['locationInput','dateInput'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.disabled = on;
-    });
   }
 
-  // --- Single day lookup ---
+  // --- Router ---
   async function lookupWeather() {
-    if (currentMode === 'multi') {
-      return lookupMultiYear();
-    }
+    if (currentMode === 'multi') return lookupMultiYear();
+    if (currentMode === 'range') return lookupRange();
+    return lookupSingle();
+  }
 
+  // --- Single day ---
+  async function lookupSingle() {
     const loc = document.getElementById('locationInput').value.trim();
     const date = document.getElementById('dateInput').value;
-
     if (!loc) { setStatus('Please enter a location.'); return; }
     if (!date) { setStatus('Please select a date.'); return; }
-
-    const today = new Date(); today.setHours(0,0,0,0);
     const chosen = new Date(date + 'T12:00:00');
-    if (chosen >= today) { setStatus('Please choose a past date.'); return; }
+    if (chosen >= tod) { setStatus('Please choose a past date.'); return; }
 
     document.getElementById('results').style.display = 'none';
     setLoading(true);
     setStatus('Searching for weather data…', true);
-
     try {
-      const weather = await fetchWeatherForDate(loc, date);
-      setStatus('');
-      setLoading(false);
-      renderSingleResult(weather);
-    } catch (e) {
-      setLoading(false);
-      setStatus('');
-      showError(e.message);
-    }
+      const w = await fetchWeatherForDate(loc, date);
+      setStatus(''); setLoading(false);
+      renderSingleResult(w);
+    } catch(e) { setLoading(false); setStatus(''); showError(e.message); }
   }
 
-  // --- Multi-year lookup ---
+  // --- Date range ---
+  async function lookupRange() {
+    const loc = document.getElementById('locationInput').value.trim();
+    const from = document.getElementById('dateFrom').value;
+    const to = document.getElementById('dateTo').value;
+    if (!loc) { setStatus('Please enter a location.'); return; }
+    if (!from || !to) { setStatus('Please select both dates.'); return; }
+    if (from > to) { setStatus('Start date must be before end date.'); return; }
+
+    // Build date list
+    const dates = [];
+    const cur = new Date(from + 'T12:00:00');
+    const end = new Date(to + 'T12:00:00');
+    while (cur <= end) {
+      dates.push(toISO(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+    if (dates.length > 14) { setStatus('Please choose a range of 14 days or fewer.'); return; }
+
+    document.getElementById('results').style.display = 'none';
+    setLoading(true);
+    setStatus(`Looking up ${dates.length} days…`, true);
+
+    const resultsEl = document.getElementById('results');
+    resultsEl.style.display = 'block';
+    resultsEl.innerHTML = `
+      <div class="card fade-up">
+        <div class="timeline-header">
+          <div class="timeline-place" id="rangePlaceName">…</div>
+          <div class="timeline-subtitle" id="rangeSubtitle">${formatDateShort(from)} — ${formatDateShort(to)}</div>
+        </div>
+        <div id="rangeRows">
+          ${dates.map(d => `
+            <div class="loading-row" id="rrow-${d}">
+              <div class="loading-row-year" style="width:auto;min-width:90px;font-size:0.8rem">${formatDateShort(d)}</div>
+              <div class="loading-bar"><div class="loading-shimmer"></div></div>
+              <div style="font-size:0.75rem;color:var(--muted)">…</div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+    resultsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    let resolvedName = loc;
+    for (const date of dates) {
+      try {
+        const w = await fetchWeatherForDate(loc, date);
+        if (w.location) resolvedName = w.location;
+        document.getElementById('rangePlaceName').textContent = resolvedName;
+        updateRangeRow(date, w);
+      } catch(e) { updateRangeRowError(date); }
+    }
+    setStatus(''); setLoading(false);
+  }
+
+  function updateRangeRow(date, w) {
+    const row = document.getElementById(`rrow-${date}`);
+    if (!row) return;
+    const avg = (+w.temp_max_c + +w.temp_min_c) / 2;
+    const icon = getIcon(+w.weather_code);
+    const d = new Date(date + 'T12:00:00');
+    const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+    row.className = 'range-day-row';
+    row.innerHTML = `
+      <div>
+        <div class="range-day-name">${dayName} <span style="font-family:'DM Mono',monospace;font-size:0.75rem;font-weight:400">${formatDateShort(date)}</span></div>
+        <div class="range-day-sub">${w.condition || ''}</div>
+      </div>
+      <div style="font-size:1.4rem">${icon}</div>
+      <div class="range-day-temp">
+        ${fmtShort(w.temp_max_c)} / ${fmtShort(w.temp_min_c)}
+        <div style="font-size:0.6rem;color:var(--muted);font-weight:400">${currentUnit === 'F' ? '°F' : '°C'} hi/lo</div>
+      </div>`;
+  }
+
+  function updateRangeRowError(date) {
+    const row = document.getElementById(`rrow-${date}`);
+    if (!row) return;
+    row.innerHTML = `<div>${formatDateShort(date)}</div><div style="color:var(--muted);font-size:0.7rem">No data</div><div>—</div>`;
+  }
+
+  // --- Multi-year ---
   async function lookupMultiYear() {
     const loc = document.getElementById('locationInput').value.trim();
     const day = document.getElementById('dayInput').value;
     const month = document.getElementById('monthInput').value;
-    const yearsBack = parseInt(document.getElementById('yearsBack').value);
-
+    const yearsBack = Math.min(80, Math.max(1, parseInt(document.getElementById('yearsBack').value) || 10));
     if (!loc) { setStatus('Please enter a location.'); return; }
 
-    const today = new Date();
-    const currentYear = today.getFullYear();
-
-    // Build list of years to fetch (skip current year if date hasn't passed yet)
+    const currentYear = new Date().getFullYear();
     const years = [];
-    for (let y = currentYear - 1; y >= currentYear - yearsBack; y--) {
-      years.push(y);
-    }
+    for (let y = currentYear - 1; y >= currentYear - yearsBack; y--) years.push(y);
 
     document.getElementById('results').style.display = 'none';
     setLoading(true);
-    setStatus(`Looking up ${years.length} years of data…`, true);
-
-    // Show skeleton UI immediately
-    const resultsEl = document.getElementById('results');
-    resultsEl.style.display = 'block';
+    setStatus(`Looking up ${years.length} years…`, true);
 
     const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     const monthName = monthNames[parseInt(month) - 1];
     const dayNum = parseInt(day);
 
+    const resultsEl = document.getElementById('results');
+    resultsEl.style.display = 'block';
     resultsEl.innerHTML = `
       <div class="card fade-up">
         <div class="timeline-header">
@@ -337,13 +445,9 @@
             </div>`).join('')}
         </div>
       </div>`;
-
     resultsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-    // Fetch years one by one and update UI as each comes in
     let resolvedName = loc;
-    let hasError = false;
-
     for (const year of years) {
       const date = `${year}-${month}-${day}`;
       try {
@@ -351,33 +455,25 @@
         if (w.location) resolvedName = w.location;
         document.getElementById('timelinePlace').textContent = resolvedName;
         updateYearRow(year, w);
-      } catch (e) {
-        updateYearRowError(year);
-        hasError = true;
-      }
+      } catch(e) { updateYearRowError(year); }
     }
-
-    setStatus('');
-    setLoading(false);
+    setStatus(''); setLoading(false);
   }
 
   function updateYearRow(year, w) {
     const row = document.getElementById(`row-${year}`);
     if (!row) return;
-
-    const avg = ((+w.temp_max_c + +w.temp_min_c) / 2);
+    const avg = (+w.temp_max_c + +w.temp_min_c) / 2;
     const icon = getIcon(+w.weather_code);
     const colorClass = avg < 0 ? 'cold' : avg < 8 ? 'cool' : avg < 16 ? 'mild' : avg < 24 ? 'warm' : 'hot';
-    // Bar width: scale -20°C to 40°C range to 0-100%
     const pct = Math.min(100, Math.max(2, ((avg + 20) / 60) * 100));
-
+    const dispTemp = currentUnit === 'F' ? toF(avg).toFixed(1) + '°F' : avg.toFixed(1) + '°C';
+    row.className = 'year-row';
     row.innerHTML = `
       <div class="year-label">${year}</div>
-      <div class="year-bar-track">
-        <div class="year-bar-fill ${colorClass}" style="width:${pct}%"></div>
-      </div>
+      <div class="year-bar-track"><div class="year-bar-fill ${colorClass}" style="width:${pct}%"></div></div>
       <div class="year-meta">
-        <div class="year-temp"><span class="year-icon">${icon}</span>${avg.toFixed(1)}°C</div>
+        <div class="year-temp"><span class="year-icon">${icon}</span>${dispTemp}</div>
         <div class="year-condition">${w.condition || ''}</div>
       </div>`;
   }
@@ -385,47 +481,40 @@
   function updateYearRowError(year) {
     const row = document.getElementById(`row-${year}`);
     if (!row) return;
-    row.innerHTML = `
-      <div class="year-label">${year}</div>
-      <div style="flex:1;font-size:0.7rem;color:var(--muted)">No data available</div>
-      <div>—</div>`;
+    row.innerHTML = `<div class="year-label">${year}</div><div style="flex:1;font-size:0.7rem;color:var(--muted)">No data</div><div>—</div>`;
   }
 
-  // --- Core fetch function ---
+  // --- Core fetch ---
   async function fetchWeatherForDate(loc, date) {
-    const prompt = `Give historical weather data for "${loc}" on ${date}. Return ONLY a JSON object with these exact fields:
+    const prompt = `Give historical weather data for "${loc}" on ${date}. Return ONLY a JSON object:
 {"location":"city, country","date":"${date}","temp_max_c":number,"temp_min_c":number,"precipitation_mm":number,"wind_max_kmh":number,"weather_code":number,"condition":"short description","hourly_temps_c":[24 numbers],"timezone":"e.g. CET"}
-Use realistic estimates based on climate data for that location and time of year. No markdown, no explanation, only the JSON.`;
+Use realistic climate estimates. No markdown, no explanation, only the JSON.`;
 
     const resp = await fetch('/.netlify/functions/weather', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt })
     });
-
     const data = await resp.json();
     if (data.error) throw new Error(data.error.message || 'API error');
-
     const rawText = data.content.filter(b => b.type === 'text').map(b => b.text).join('');
     const clean = rawText.replace(/```json|```/g, '').trim();
     const match = clean.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('Could not parse response.');
-
     return JSON.parse(match[0]);
   }
 
-  // --- Render single result ---
+  // --- Render single ---
   function renderSingleResult(w) {
-    const avg = ((+w.temp_max_c + +w.temp_min_c) / 2).toFixed(1);
+    const avg = (+w.temp_max_c + +w.temp_min_c) / 2;
     const icon = getIcon(+w.weather_code);
     const hourly = Array.isArray(w.hourly_temps_c) ? w.hourly_temps_c : [];
-    const tMin = Math.min(...hourly);
-    const tMax = Math.max(...hourly);
-    const tRange = tMax - tMin || 1;
+    const tMin = Math.min(...hourly); const tMax = Math.max(...hourly); const tRange = tMax - tMin || 1;
 
     const bars = hourly.map((t, i) => {
       const h = Math.max(4, Math.round(((+t - tMin) / tRange) * 58 + 4));
-      return `<div class="hour-bar-wrap"><div class="hour-bar" style="height:${h}px"><div class="hour-bar-tip">${i}:00 · ${(+t).toFixed(1)}°C</div></div></div>`;
+      const tip = currentUnit === 'F' ? `${i}:00 · ${toF(+t).toFixed(1)}°F` : `${i}:00 · ${(+t).toFixed(1)}°C`;
+      return `<div class="hour-bar-wrap"><div class="hour-bar" style="height:${h}px"><div class="hour-bar-tip">${tip}</div></div></div>`;
     }).join('');
     const labels = Array.from({length:24},(_,i)=>`<div class="hour-label">${i%6===0?i+'h':''}</div>`).join('');
 
@@ -438,12 +527,12 @@ Use realistic estimates based on climate data for that location and time of year
           <div class="result-date">${formatDate(w.date)}</div>
         </div>
         <div class="weather-icon">${icon}</div>
-        <div class="temp-main">${avg}°C</div>
-        <div class="temp-range">↑ ${w.temp_max_c}° high &nbsp;·&nbsp; ↓ ${w.temp_min_c}° low</div>
+        <div class="temp-main">${fmt(avg)}</div>
+        <div class="temp-range">↑ ${fmt(w.temp_max_c)} high &nbsp;·&nbsp; ↓ ${fmt(w.temp_min_c)} low</div>
         <div class="condition-text">${w.condition}</div>
         <div class="stats-grid">
-          <div class="stat"><div class="stat-val">${w.temp_max_c}°</div><div class="stat-label">High</div></div>
-          <div class="stat"><div class="stat-val">${w.temp_min_c}°</div><div class="stat-label">Low</div></div>
+          <div class="stat"><div class="stat-val">${fmt(w.temp_max_c)}</div><div class="stat-label">High</div></div>
+          <div class="stat"><div class="stat-val">${fmt(w.temp_min_c)}</div><div class="stat-label">Low</div></div>
           <div class="stat"><div class="stat-val">${w.precipitation_mm!=null?Number(w.precipitation_mm).toFixed(1):'—'} mm</div><div class="stat-label">Precipitation</div></div>
           <div class="stat"><div class="stat-val">${w.wind_max_kmh!=null?Math.round(+w.wind_max_kmh):'—'}</div><div class="stat-label">Max Wind km/h</div></div>
           <div class="stat"><div class="stat-val">${w.timezone||'—'}</div><div class="stat-label">Timezone</div></div>
@@ -476,11 +565,12 @@ Use realistic estimates based on climate data for that location and time of year
   function formatDate(ds) {
     return new Date(ds + 'T12:00:00').toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
   }
+  function formatDateShort(ds) {
+    return new Date(ds + 'T12:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+  }
 </script>
 <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js');
-  }
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 </script>
 </body>
 </html>
