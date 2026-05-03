@@ -46,6 +46,12 @@
 
   .hint { font-size:0.65rem; color:var(--muted); margin-top:-10px; margin-bottom:14px; line-height:1.5; }
 
+  /* Photo drop zone */
+  #photoDropZone:hover, #photoDropZone.drag-over { border-color:var(--ink) !important; background:var(--paper) !important; }
+
+  /* Photo result card */
+  .photo-result-photo { width:100%; max-height:280px; object-fit:cover; border-bottom:1px solid var(--line); margin-bottom:20px; display:block; }
+
   #status { font-size:0.75rem; color:var(--muted); min-height:20px; margin-top:10px; }
   #results { width:100%; max-width:660px; display:none; }
 
@@ -116,6 +122,19 @@
   .timeline-place { font-family:'Playfair Display',serif; font-size:1.6rem; font-weight:700; }
   .timeline-sub { font-size:0.7rem; color:var(--muted); letter-spacing:0.1em; margin-top:4px; }
 
+  /* Overall summary card */
+  .summary-card { width:100%; max-width:660px; background:var(--ink); color:var(--paper); border:1px solid var(--ink); box-shadow:4px 4px 0 var(--rust); padding:28px 32px; margin-bottom:24px; }
+  .summary-title { font-family:'Playfair Display',serif; font-size:1.1rem; font-weight:700; letter-spacing:0.05em; margin-bottom:20px; opacity:0.7; text-transform:uppercase; font-style:italic; }
+  .summary-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.15); margin-bottom:20px; }
+  .summary-stat { background:var(--ink); padding:16px 14px; }
+  .summary-stat-val { font-family:'Playfair Display',serif; font-size:1.5rem; font-weight:700; }
+  .summary-stat-label { font-size:0.6rem; letter-spacing:0.18em; text-transform:uppercase; opacity:0.6; margin-top:3px; }
+  .summary-range-bar { height:10px; background:rgba(255,255,255,0.15); margin:16px 0 6px; position:relative; }
+  .summary-range-fill { position:absolute; height:100%; background:var(--rust); opacity:0.85; }
+  .summary-range-labels { display:flex; justify-content:space-between; font-size:0.62rem; opacity:0.6; margin-bottom:4px; }
+  .summary-conditions { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+  .summary-condition-pill { background:rgba(255,255,255,0.12); padding:4px 10px; font-size:0.65rem; letter-spacing:0.08em; }
+
   .error-msg { background:#fff5f5; border:1px solid var(--rust); padding:14px 18px; color:var(--rust); font-size:0.8rem; line-height:1.6; }
   .loading-spinner { display:inline-block; width:12px; height:12px; border:2px solid var(--line); border-top-color:var(--ink); border-radius:50%; animation:spin 0.7s linear infinite; vertical-align:middle; margin-right:6px; }
   @keyframes spin { to{transform:rotate(360deg)} }
@@ -136,6 +155,7 @@
     <div class="mode-toggle">
       <button class="mode-btn active" id="modeSingle" onclick="setMode('single')">Single day</button>
       <button class="mode-btn" id="modeRange" onclick="setMode('range')">Date range</button>
+      <button class="mode-btn" id="modePhoto" onclick="setMode('photo')">📷 Photo</button>
     </div>
     <div class="unit-toggle">
       <button class="unit-btn active" id="unitC" onclick="setUnit('C')">°C</button>
@@ -143,9 +163,11 @@
     </div>
   </div>
 
+  <div id="locationRow">
   <p class="section-label">Location</p>
   <div class="input-row">
     <input type="text" id="locationInput" placeholder="e.g. Gothenburg, Los Angeles, Tokyo…" />
+  </div>
   </div>
 
   <!-- Single day -->
@@ -187,6 +209,31 @@
     <p class="hint">Max 7 days per range · Max 30 years</p>
   </div>
 
+  <!-- Photo mode -->
+  <div id="photoSection" class="hidden">
+    <div id="photoDropZone" onclick="document.getElementById('photoFileInput').click()"
+      style="border:2px dashed var(--line);padding:36px 20px;text-align:center;cursor:pointer;transition:border-color 0.2s;margin-bottom:18px;background:var(--cream)">
+      <div style="font-size:2.5rem;margin-bottom:10px">📷</div>
+      <div style="font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;margin-bottom:6px">Drop a photo here</div>
+      <div style="font-size:0.7rem;color:var(--muted)">or tap to choose from your library</div>
+    </div>
+    <input type="file" id="photoFileInput" accept="image/*" style="display:none" onchange="handlePhotoFile(this.files[0])">
+
+    <!-- Extracted info (shown after photo is loaded) -->
+    <div id="photoInfo" class="hidden">
+      <div style="display:flex;gap:14px;margin-bottom:18px;align-items:flex-start">
+        <img id="photoThumb" style="width:80px;height:80px;object-fit:cover;border:1px solid var(--ink);flex-shrink:0" />
+        <div style="flex:1">
+          <p class="section-label">Date from photo</p>
+          <input type="date" id="photoDate" style="width:100%;margin-bottom:10px" />
+          <p class="section-label">Location</p>
+          <input type="text" id="photoLocation" placeholder="Enter city if not found automatically" style="width:100%" />
+          <div id="photoGpsNote" style="font-size:0.62rem;color:var(--muted);margin-top:4px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <button class="btn" id="lookupBtn" style="width:100%;margin-top:8px;padding:14px" onclick="lookupWeather()">
     Look up the weather
   </button>
@@ -216,8 +263,12 @@
     mode = m;
     document.getElementById('modeSingle').classList.toggle('active', m==='single');
     document.getElementById('modeRange').classList.toggle('active', m==='range');
+    document.getElementById('modePhoto').classList.toggle('active', m==='photo');
     document.getElementById('singleSection').classList.toggle('hidden', m!=='single');
     document.getElementById('rangeSection').classList.toggle('hidden', m!=='range');
+    document.getElementById('photoSection').classList.toggle('hidden', m!=='photo');
+    // Hide location row for photo mode (photo has its own location field)
+    document.getElementById('locationRow').style.display = m==='photo' ? 'none' : 'block';
     document.getElementById('results').style.display = 'none';
     setStatus('');
   }
@@ -259,6 +310,7 @@
 
   async function lookupWeather() {
     if (mode === 'single') return lookupSingle();
+    if (mode === 'photo')  return lookupPhoto();
     return lookupRange();
   }
 
@@ -391,6 +443,7 @@
     resultsEl.scrollIntoView({behavior:'smooth',block:'nearest'});
 
     let resolvedName = loc;
+    const allResults = []; // collect everything for overall summary
     (async () => {
       for (const yb of yearBlocks) {
         const dayResults = [];
@@ -400,11 +453,13 @@
             if (w.location) { resolvedName = w.location; document.getElementById('tlPlace').textContent = resolvedName; }
             updateDayRow(yb.year, date, w);
             dayResults.push(w);
+            allResults.push(w);
           } catch(e) { updateDayRowError(yb.year, date); }
         }
         updateYearSummary(yb.year, dayResults);
       }
       setStatus(''); setLoading(false);
+      if (allResults.length > 1) renderOverallSummary(allResults, label, yearBlocks.length);
     })();
   }
 
@@ -475,6 +530,334 @@
     const avgMax = results.reduce((s,w)=>s+ +w.temp_max_c,0)/results.length;
     const avgMin = results.reduce((s,w)=>s+ +w.temp_min_c,0)/results.length;
     el.innerHTML = `<span style="color:var(--ink)">${fmtS(avgMax)} / ${fmtS(avgMin)}</span> <span style="color:var(--muted)">avg hi/lo · ${results.length} days</span>`;
+  }
+
+  function renderOverallSummary(all, label, numYears) {
+    const allMax = all.map(w => +w.temp_max_c);
+    const allMin = all.map(w => +w.temp_min_c);
+    const allPrecip = all.map(w => +w.precipitation_mm).filter(v => !isNaN(v));
+
+    const overallAvgHi  = allMax.reduce((s,v)=>s+v,0)/allMax.length;
+    const overallAvgLo  = allMin.reduce((s,v)=>s+v,0)/allMin.length;
+    const recordHi      = Math.max(...allMax);
+    const recordLo      = Math.min(...allMin);
+    const totalPrecip   = allPrecip.reduce((s,v)=>s+v,0);
+    const avgPrecip     = allPrecip.length ? totalPrecip/allPrecip.length : null;
+
+    // Temp range bar: map recordLo to recordHi across a -30 to 45 scale
+    const scaleMin = -30, scaleMax = 45, scaleRange = scaleMax - scaleMin;
+    const barLeft  = Math.max(0, Math.min(100, ((recordLo - scaleMin)/scaleRange)*100));
+    const barRight = Math.max(0, Math.min(100, ((recordHi - scaleMin)/scaleRange)*100));
+    const barWidth = barRight - barLeft;
+
+    // Condition frequency
+    const condCount = {};
+    all.forEach(w => { if(w.condition){ const k=w.condition; condCount[k]=(condCount[k]||0)+1; }});
+    const conditions = Object.entries(condCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+    const fmtV = c => unit==='F' ? toF(c).toFixed(1)+'°F' : Number(c).toFixed(1)+'°C';
+
+    const el = document.createElement('div');
+    el.className = 'summary-card fade-up';
+    el.innerHTML = `
+      <div class="summary-title">Overall summary · ${numYears} year${numYears>1?'s':''} · ${label}</div>
+      <div class="summary-grid">
+        <div class="summary-stat">
+          <div class="summary-stat-val">${fmtV(overallAvgHi)}</div>
+          <div class="summary-stat-label">Avg high</div>
+        </div>
+        <div class="summary-stat">
+          <div class="summary-stat-val">${fmtV(overallAvgLo)}</div>
+          <div class="summary-stat-label">Avg low</div>
+        </div>
+        <div class="summary-stat">
+          <div class="summary-stat-val">${fmtV(recordHi)}</div>
+          <div class="summary-stat-label">Record high</div>
+        </div>
+        <div class="summary-stat">
+          <div class="summary-stat-val">${fmtV(recordLo)}</div>
+          <div class="summary-stat-label">Record low</div>
+        </div>
+        ${avgPrecip !== null ? `
+        <div class="summary-stat">
+          <div class="summary-stat-val">${avgPrecip.toFixed(1)} mm</div>
+          <div class="summary-stat-label">Avg daily precip</div>
+        </div>
+        <div class="summary-stat">
+          <div class="summary-stat-val">${totalPrecip.toFixed(0)} mm</div>
+          <div class="summary-stat-label">Total precip (all yrs)</div>
+        </div>` : ''}
+      </div>
+      <div style="font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;opacity:0.6;margin-bottom:8px">Temperature range across all data</div>
+      <div class="summary-range-bar">
+        <div class="summary-range-fill" style="left:${barLeft}%;width:${barWidth}%"></div>
+      </div>
+      <div class="summary-range-labels">
+        <span>${fmtV(recordLo)}</span>
+        <span>coldest → hottest</span>
+        <span>${fmtV(recordHi)}</span>
+      </div>
+      ${conditions.length ? `
+      <div style="font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;opacity:0.6;margin-top:20px;margin-bottom:10px">Most common conditions</div>
+      <div class="summary-conditions">
+        ${conditions.map(([cond,count])=>`<div class="summary-condition-pill">${cond} <span style="opacity:0.5">×${count}</span></div>`).join('')}
+      </div>` : ''}
+    `;
+
+    // Insert before the results accordion card
+    const resultsEl = document.getElementById('results');
+    resultsEl.insertBefore(el, resultsEl.firstChild);
+    el.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+
+  // --- EXIF parser (reads date & GPS from JPEG without any library) ---
+  function readExif(file) {
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const buf = e.target.result;
+        const view = new DataView(buf);
+        const result = { date: null, lat: null, lon: null };
+        try {
+          if (view.getUint16(0) !== 0xFFD8) { resolve(result); return; }
+          let offset = 2;
+          while (offset < buf.byteLength - 2) {
+            const marker = view.getUint16(offset);
+            if (marker === 0xFFE1) { // APP1 = EXIF
+              parseApp1(view, offset + 4, result);
+              break;
+            }
+            if ((marker & 0xFF00) !== 0xFF00) break;
+            offset += 2 + view.getUint16(offset + 2);
+          }
+        } catch(e) {}
+        resolve(result);
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  function parseApp1(view, start, result) {
+    // Endianness
+    const endian = view.getUint16(start) === 0x4949 ? true : false; // little = true
+    const ifd0 = start + view.getUint32(start + 4, endian);
+    const getU16 = (o) => view.getUint16(o, endian);
+    const getU32 = (o) => view.getUint32(o, endian);
+
+    function readIFD(ifdOffset) {
+      const count = getU16(ifdOffset);
+      const entries = {};
+      for (let i = 0; i < count; i++) {
+        const o = ifdOffset + 2 + i * 12;
+        const tag  = getU16(o);
+        const type = getU16(o + 2);
+        const num  = getU32(o + 4);
+        const valO = o + 8;
+        entries[tag] = { type, num, valO };
+      }
+      return entries;
+    }
+
+    function readAscii(o, len) {
+      let s = '';
+      for (let i = 0; i < len - 1; i++) s += String.fromCharCode(view.getUint8(o + i));
+      return s.trim();
+    }
+
+    function readRational(o) {
+      const num = view.getUint32(o, endian);
+      const den = view.getUint32(o + 4, endian);
+      return den ? num / den : 0;
+    }
+
+    try {
+      const ifd0e = readIFD(ifd0);
+
+      // DateTime tag 0x0132
+      if (ifd0e[0x0132]) {
+        const e = ifd0e[0x0132];
+        const dataOffset = e.num <= 4 ? e.valO : start + getU32(e.valO);
+        const dtStr = readAscii(dataOffset, e.num); // "YYYY:MM:DD HH:MM:SS"
+        if (dtStr && dtStr.length >= 10) {
+          const parts = dtStr.split(' ')[0].split(':');
+          if (parts.length === 3) result.date = `${parts[0]}-${parts[1]}-${parts[2]}`;
+        }
+      }
+
+      // ExifIFD pointer 0x8769
+      if (ifd0e[0x8769]) {
+        const exifOffset = start + getU32(ifd0e[0x8769].valO);
+        const exife = readIFD(exifOffset);
+        // DateTimeOriginal 0x9003
+        if (exife[0x9003]) {
+          const e = exife[0x9003];
+          const dataOffset = e.num <= 4 ? e.valO : start + getU32(e.valO);
+          const dtStr = readAscii(dataOffset, e.num);
+          if (dtStr && dtStr.length >= 10) {
+            const parts = dtStr.split(' ')[0].split(':');
+            if (parts.length === 3) result.date = `${parts[0]}-${parts[1]}-${parts[2]}`;
+          }
+        }
+      }
+
+      // GPS IFD pointer 0x8825
+      if (ifd0e[0x8825]) {
+        const gpsOffset = start + getU32(ifd0e[0x8825].valO);
+        const gpse = readIFD(gpsOffset);
+
+        function readDMS(o) {
+          const d = readRational(o);
+          const m = readRational(o + 8);
+          const s = readRational(o + 16);
+          return d + m/60 + s/3600;
+        }
+
+        if (gpse[0x0002] && gpse[0x0004]) { // GPSLatitude, GPSLongitude
+          const latO = start + getU32(gpse[0x0002].valO);
+          const lonO = start + getU32(gpse[0x0004].valO);
+          let lat = readDMS(latO);
+          let lon = readDMS(lonO);
+
+          // Ref tags (N/S, E/W)
+          if (gpse[0x0001]) {
+            const refO = gpse[0x0001].num <= 4 ? gpse[0x0001].valO : start + getU32(gpse[0x0001].valO);
+            if (String.fromCharCode(view.getUint8(refO)) === 'S') lat = -lat;
+          }
+          if (gpse[0x0003]) {
+            const refO = gpse[0x0003].num <= 4 ? gpse[0x0003].valO : start + getU32(gpse[0x0003].valO);
+            if (String.fromCharCode(view.getUint8(refO)) === 'W') lon = -lon;
+          }
+          result.lat = lat;
+          result.lon = lon;
+        }
+      }
+    } catch(e) {}
+  }
+
+  // Reverse geocode via Claude
+  async function reverseGeocode(lat, lon) {
+    const prompt = `What city/place is at coordinates latitude ${lat.toFixed(4)}, longitude ${lon.toFixed(4)}? Reply ONLY with a JSON object: {"location":"City, Country"}. No markdown, no explanation.`;
+    const resp = await fetch('/.netlify/functions/weather', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({prompt})
+    });
+    const data = await resp.json();
+    const raw = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+    const match = raw.match(/\{[\s\S]*?\}/);
+    if (!match) return null;
+    return JSON.parse(match[0]).location || null;
+  }
+
+  // Handle photo file selection
+  async function handlePhotoFile(file) {
+    if (!file) return;
+    setStatus('Reading photo metadata…', true);
+
+    // Show thumbnail
+    const thumb = document.getElementById('photoThumb');
+    thumb.src = URL.createObjectURL(file);
+    document.getElementById('photoInfo').classList.remove('hidden');
+
+    const exif = await readExif(file);
+
+    // Set date
+    const dateEl = document.getElementById('photoDate');
+    if (exif.date) {
+      dateEl.value = exif.date;
+      dateEl.max = toISO(yest);
+      dateEl.min = '1940-01-01';
+    } else {
+      dateEl.value = toISO(yest);
+    }
+
+    // Set location
+    const locEl = document.getElementById('photoLocation');
+    const noteEl = document.getElementById('photoGpsNote');
+
+    if (exif.lat !== null && exif.lon !== null) {
+      noteEl.textContent = `📍 GPS found (${exif.lat.toFixed(3)}, ${exif.lon.toFixed(3)}) — looking up place name…`;
+      try {
+        const place = await reverseGeocode(exif.lat, exif.lon);
+        if (place) {
+          locEl.value = place;
+          noteEl.textContent = `📍 Location read from photo GPS`;
+        } else {
+          noteEl.textContent = `📍 GPS coords found but couldn't resolve place — please enter manually`;
+        }
+      } catch(e) {
+        noteEl.textContent = `📍 GPS found but reverse geocoding failed — please enter location`;
+      }
+    } else {
+      noteEl.textContent = `⚠ No GPS data in this photo — please enter location manually`;
+      locEl.value = '';
+      locEl.focus();
+    }
+
+    setStatus(exif.date ? '' : '⚠ No date found in photo — please set it manually');
+  }
+
+  // Drag and drop
+  const dz = document.getElementById('photoDropZone');
+  if (dz) {
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault(); dz.classList.remove('drag-over');
+      const f = e.dataTransfer.files[0];
+      if (f && f.type.startsWith('image/')) handlePhotoFile(f);
+    });
+  }
+
+  // Photo lookup
+  async function lookupPhoto() {
+    const date = document.getElementById('photoDate').value;
+    const loc  = document.getElementById('photoLocation').value.trim();
+    if (!date) { setStatus('Please set the photo date.'); return; }
+    if (!loc)  { setStatus('Please enter a location.'); return; }
+    const chosen = new Date(date+'T12:00:00');
+    if (chosen >= tod) { setStatus('Date must be in the past.'); return; }
+
+    document.getElementById('results').style.display = 'none';
+    setLoading(true);
+    setStatus('Looking up weather for this photo…', true);
+
+    try {
+      const w = await fetchWeather(loc, date);
+      setStatus(''); setLoading(false);
+      // Pass photo thumb to render
+      const thumbSrc = document.getElementById('photoThumb').src;
+      renderPhotoResult(w, thumbSrc);
+    } catch(e) { setLoading(false); setStatus(''); showError(e.message); }
+  }
+
+  function renderPhotoResult(w, thumbSrc) {
+    const avg = (+w.temp_max_c + +w.temp_min_c)/2;
+    const icon = getIcon(+w.weather_code);
+    const el = document.getElementById('results');
+    el.style.display = 'block';
+    el.innerHTML = `
+      <div class="card fade-up" style="padding:0;overflow:hidden">
+        <img src="${thumbSrc}" class="photo-result-photo" />
+        <div style="padding:24px 32px 32px">
+          <div class="result-header">
+            <div class="result-place">${w.location}</div>
+            <div class="result-date">${fmtDateLong(w.date)}</div>
+          </div>
+          <div class="weather-icon">${icon}</div>
+          <div class="temp-main">${fmt(avg)}</div>
+          <div class="temp-range">↑ ${fmt(w.temp_max_c)} high &nbsp;·&nbsp; ↓ ${fmt(w.temp_min_c)} low</div>
+          <div class="condition-text">${w.condition}</div>
+          <div class="stats-grid">
+            <div class="stat"><div class="stat-val">${fmt(w.temp_max_c)}</div><div class="stat-label">High</div></div>
+            <div class="stat"><div class="stat-val">${fmt(w.temp_min_c)}</div><div class="stat-label">Low</div></div>
+            <div class="stat"><div class="stat-val">${w.precipitation_mm!=null?Number(w.precipitation_mm).toFixed(1):'—'} mm</div><div class="stat-label">Precip</div></div>
+            <div class="stat"><div class="stat-val">${w.wind_max_kmh!=null?Math.round(+w.wind_max_kmh):'—'}</div><div class="stat-label">Max Wind km/h</div></div>
+            <div class="stat"><div class="stat-val">${w.timezone||'—'}</div><div class="stat-label">Timezone</div></div>
+            <div class="stat"><div class="stat-val">${w.date}</div><div class="stat-label">Date</div></div>
+          </div>
+        </div>
+      </div>`;
+    el.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
 
   // --- Core fetch ---
@@ -548,4 +931,5 @@ Realistic climate estimates. No markdown, no explanation, only the JSON.`;
 <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 </body>
 </html>
+
 
