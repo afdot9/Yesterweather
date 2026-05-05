@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Yesterweather</title>
 <link rel="manifest" href="/manifest.json">
+<script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>
 <meta name="theme-color" content="#1a1a2e">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -610,128 +611,39 @@
     el.scrollIntoView({behavior:'smooth', block:'nearest'});
   }
 
-  // --- EXIF parser (reads date & GPS from JPEG without any library) ---
-  function readExif(file) {
-    return new Promise(resolve => {
-      const reader = new FileReader();
-      reader.onload = e => {
-        const buf = e.target.result;
-        const view = new DataView(buf);
-        const result = { date: null, lat: null, lon: null };
-        try {
-          if (view.getUint16(0) !== 0xFFD8) { resolve(result); return; }
-          let offset = 2;
-          while (offset < buf.byteLength - 2) {
-            const marker = view.getUint16(offset);
-            if (marker === 0xFFE1) { // APP1 = EXIF
-              parseApp1(view, offset + 4, result);
-              break;
-            }
-            if ((marker & 0xFF00) !== 0xFF00) break;
-            offset += 2 + view.getUint16(offset + 2);
-          }
-        } catch(e) {}
-        resolve(result);
-      };
-      reader.readAsArrayBuffer(file);
-    });
-  }
-
-  function parseApp1(view, start, result) {
-    // Endianness
-    const endian = view.getUint16(start) === 0x4949 ? true : false; // little = true
-    const ifd0 = start + view.getUint32(start + 4, endian);
-    const getU16 = (o) => view.getUint16(o, endian);
-    const getU32 = (o) => view.getUint32(o, endian);
-
-    function readIFD(ifdOffset) {
-      const count = getU16(ifdOffset);
-      const entries = {};
-      for (let i = 0; i < count; i++) {
-        const o = ifdOffset + 2 + i * 12;
-        const tag  = getU16(o);
-        const type = getU16(o + 2);
-        const num  = getU32(o + 4);
-        const valO = o + 8;
-        entries[tag] = { type, num, valO };
-      }
-      return entries;
-    }
-
-    function readAscii(o, len) {
-      let s = '';
-      for (let i = 0; i < len - 1; i++) s += String.fromCharCode(view.getUint8(o + i));
-      return s.trim();
-    }
-
-    function readRational(o) {
-      const num = view.getUint32(o, endian);
-      const den = view.getUint32(o + 4, endian);
-      return den ? num / den : 0;
-    }
-
+  // --- EXIF reading via exifr library ---
+  async function readExif(file) {
+    const result = { date: null, lat: null, lon: null };
     try {
-      const ifd0e = readIFD(ifd0);
+      const exif = await window.exifr.parse(file, {
+        tiff: true,
+        exif: true,
+        gps: true,
+        translateKeys: true,
+        translateValues: true,
+        reviveValues: true
+      });
+      if (!exif) return result;
 
-      // DateTime tag 0x0132
-      if (ifd0e[0x0132]) {
-        const e = ifd0e[0x0132];
-        const dataOffset = e.num <= 4 ? e.valO : start + getU32(e.valO);
-        const dtStr = readAscii(dataOffset, e.num); // "YYYY:MM:DD HH:MM:SS"
-        if (dtStr && dtStr.length >= 10) {
-          const parts = dtStr.split(' ')[0].split(':');
-          if (parts.length === 3) result.date = `${parts[0]}-${parts[1]}-${parts[2]}`;
-        }
+      // Date — try DateTimeOriginal first, then DateTime
+      const dt = exif.DateTimeOriginal || exif.DateTime || exif.CreateDate;
+      if (dt instanceof Date) {
+        result.date = toISO(dt);
+      } else if (typeof dt === 'string') {
+        // Format: "YYYY:MM:DD HH:MM:SS"
+        const parts = dt.split(' ')[0].split(':');
+        if (parts.length === 3) result.date = parts.join('-');
       }
 
-      // ExifIFD pointer 0x8769
-      if (ifd0e[0x8769]) {
-        const exifOffset = start + getU32(ifd0e[0x8769].valO);
-        const exife = readIFD(exifOffset);
-        // DateTimeOriginal 0x9003
-        if (exife[0x9003]) {
-          const e = exife[0x9003];
-          const dataOffset = e.num <= 4 ? e.valO : start + getU32(e.valO);
-          const dtStr = readAscii(dataOffset, e.num);
-          if (dtStr && dtStr.length >= 10) {
-            const parts = dtStr.split(' ')[0].split(':');
-            if (parts.length === 3) result.date = `${parts[0]}-${parts[1]}-${parts[2]}`;
-          }
-        }
+      // GPS
+      if (exif.latitude != null && exif.longitude != null) {
+        result.lat = exif.latitude;
+        result.lon = exif.longitude;
       }
-
-      // GPS IFD pointer 0x8825
-      if (ifd0e[0x8825]) {
-        const gpsOffset = start + getU32(ifd0e[0x8825].valO);
-        const gpse = readIFD(gpsOffset);
-
-        function readDMS(o) {
-          const d = readRational(o);
-          const m = readRational(o + 8);
-          const s = readRational(o + 16);
-          return d + m/60 + s/3600;
-        }
-
-        if (gpse[0x0002] && gpse[0x0004]) { // GPSLatitude, GPSLongitude
-          const latO = start + getU32(gpse[0x0002].valO);
-          const lonO = start + getU32(gpse[0x0004].valO);
-          let lat = readDMS(latO);
-          let lon = readDMS(lonO);
-
-          // Ref tags (N/S, E/W)
-          if (gpse[0x0001]) {
-            const refO = gpse[0x0001].num <= 4 ? gpse[0x0001].valO : start + getU32(gpse[0x0001].valO);
-            if (String.fromCharCode(view.getUint8(refO)) === 'S') lat = -lat;
-          }
-          if (gpse[0x0003]) {
-            const refO = gpse[0x0003].num <= 4 ? gpse[0x0003].valO : start + getU32(gpse[0x0003].valO);
-            if (String.fromCharCode(view.getUint8(refO)) === 'W') lon = -lon;
-          }
-          result.lat = lat;
-          result.lon = lon;
-        }
-      }
-    } catch(e) {}
+    } catch(e) {
+      console.warn('exifr error:', e);
+    }
+    return result;
   }
 
   // Reverse geocode via Claude
@@ -931,5 +843,6 @@ Realistic climate estimates. No markdown, no explanation, only the JSON.`;
 <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 </body>
 </html>
+
 
 
